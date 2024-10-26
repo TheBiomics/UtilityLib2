@@ -17,6 +17,31 @@ class DeltaTime(PD.Timedelta):
   def __init__(self, *args, **kwargs):
     super().__init__()
 
+  @property
+  def humanize(self):
+    """Formats a timedelta object into a human-readable string."""
+    import humanize
+    return humanize.naturaltime(self)
+
+  @property
+  def diff(self):
+    """Formats a timedelta object into a human-readable string."""
+    _seconds = int(round(self.total_seconds()))
+    _days, _seconds = divmod(_seconds, 86400)
+    _hours, _seconds = divmod(_seconds, 3600)
+    _minutes, _seconds = divmod(_seconds, 60)
+
+    _string = []
+    if _days:
+      _string.append(f"{_days} day{'s' if abs(_days) > 1 else ''}")
+    if _hours:
+      _string.append(f"{_hours} hour{'s' if abs(_hours) > 1 else ''}")
+    if _minutes:
+      _string.append(f"{_minutes} minute{'s' if abs(_minutes) > 1 else ''}")
+    if _seconds:
+      _string.append(f"{_seconds} second{'s' if abs(_seconds) > 1 else ''}")
+
+    return ", ".join(_string)
 
 class EntityTime():
   """EntityTime: To manage time and provide acessary methods
@@ -29,6 +54,11 @@ class EntityTime():
   PDTS = PD.Timestamp
 
   def __init__(self, *args, **kwargs):
+    """
+      _et = EntityTime()
+      _et = EntityTime('+6 hours')
+      _et = EntityTime('+6 hours')
+    """
     self._datetime = _DT.now()
     self.format = kwargs.get('format', self.format)
 

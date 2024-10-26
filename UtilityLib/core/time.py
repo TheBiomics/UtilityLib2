@@ -2,7 +2,7 @@ from .base import BaseUtility
 from ..lib.time import EntityTime
 
 class TimeUtility(BaseUtility):
-  DateTime = EntityTime
+  DeltaTime = EntityTime.DeltaTime
   def __init__(self, *args, **kwargs):
     __defaults = {
         "duration": 3,
@@ -10,6 +10,16 @@ class TimeUtility(BaseUtility):
     __defaults.update(kwargs)
     super().__init__(**__defaults)
     self.time_start()
+
+  @property
+  def datetime(self):
+    """Time format: 12:54:54"""
+    return EntityTime()
+
+  @property
+  def deltatime(self):
+    """Time format: 12:54:54"""
+    return EntityTime().DeltaTime
 
   @property
   def time(self):
@@ -29,41 +39,41 @@ class TimeUtility(BaseUtility):
   @property
   def date(self):
     """Date format: 2024-10-24"""
-    return EntityTime().date
+    return str(EntityTime().date)
 
   @property
   def day(self):
-    return EntityTime()._datetime.day
+    return self.datetime._datetime.day
 
   @property
   def weekday(self):
-    return EntityTime()._datetime.strftime("%A")
+    return self.datetime._datetime.strftime("%A")
 
   day_name = weekday
 
   @property
   def month(self):
-    return EntityTime()._datetime.month
+    return self.datetime._datetime.month
 
   @property
   def month_name(self):
-    return EntityTime()._datetime.strftime('%B')
+    return self.datetime._datetime.strftime('%B')
 
   @property
   def year(self):
-    return EntityTime()._datetime.year
+    return self.datetime._datetime.year
 
   @property
   def hour(self):
-    return EntityTime()._datetime.hour
+    return self.datetime._datetime.hour
 
   @property
   def minute(self):
-    return EntityTime()._datetime.minute
+    return self.datetime._datetime.minute
 
   @property
   def second(self):
-    return EntityTime()._datetime.second
+    return self.datetime._datetime.second
 
   @property
   def ts_us(self):
@@ -87,7 +97,7 @@ class TimeUtility(BaseUtility):
     _human_readable = args[1] if len(args) > 1 else kwargs.get("human_readable", False)
     _seconds_elapsed = _from - self.start_time
 
-    _time_delta = self.DateTime.DeltaTime.timedelta(seconds=_seconds_elapsed)
+    _time_delta = EntityTime.DeltaTime.timedelta(seconds=_seconds_elapsed)
     _res_time = str(_time_delta)
 
     if _human_readable:

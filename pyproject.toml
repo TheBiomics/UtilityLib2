@@ -24,6 +24,8 @@ dependencies = [
   'tqdm',
   'toml',
   'openpyxl',
+  'schedule',
+  'humanize',
 ]
 
 [project.urls]
