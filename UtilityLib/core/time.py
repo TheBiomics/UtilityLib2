@@ -1,6 +1,8 @@
 from .base import BaseUtility
+from ..lib.time import EntityTime
 
 class TimeUtility(BaseUtility):
+  DateTime = EntityTime
   def __init__(self, *args, **kwargs):
     __defaults = {
         "duration": 3,
@@ -9,52 +11,93 @@ class TimeUtility(BaseUtility):
     super().__init__(**__defaults)
     self.time_start()
 
-  def time_get(self):
-    self.require("time", "TIME")
-    self.pinned_time = self.TIME.time()
-    return self.pinned_time
+  @property
+  def time(self):
+    """Time format: 12:54:54"""
+    return str(EntityTime().time)[:-7]
+
+  @property
+  def time_ms(self):
+    """Time format: 12:54:54.111"""
+    return str(EntityTime().time)[:-3]
+
+  @property
+  def time_us(self):
+    """Time format: 12:54:54.111111"""
+    return str(EntityTime().time)
+
+  @property
+  def date(self):
+    """Date format: 2024-10-24"""
+    return EntityTime().date
+
+  @property
+  def day(self):
+    return EntityTime()._datetime.day
+
+  @property
+  def weekday(self):
+    return EntityTime()._datetime.strftime("%A")
+
+  day_name = weekday
+
+  @property
+  def month(self):
+    return EntityTime()._datetime.month
+
+  @property
+  def month_name(self):
+    return EntityTime()._datetime.strftime('%B')
+
+  @property
+  def year(self):
+    return EntityTime()._datetime.year
+
+  @property
+  def hour(self):
+    return EntityTime()._datetime.hour
+
+  @property
+  def minute(self):
+    return EntityTime()._datetime.minute
+
+  @property
+  def second(self):
+    return EntityTime()._datetime.second
+
+  @property
+  def ts_us(self):
+    """Timestamp with microseconds e.g., 1729927233.803901"""
+    return EntityTime().timestamp
 
   @property
   def time_stamp(self):
-    return self.get_dt_stamp()
+    """Timestamp rounded off e.g., 1729927233"""
+    return int(self.ts_us)
 
   timestamp = time_stamp
-
-  @property
-  def date_stamp(self):
-    return self.get_dt_stamp(format='%Y%m%d')
-
-  datestamp = date_stamp
-
-  def get_dt_stamp(self, *args, **kwargs):
-    _format = kwargs.get("format", args[0] if len(args) > 0 else '%Y%m%d%H%M%S')
-    from datetime import datetime as DATE_PROVIDER
-    return DATE_PROVIDER.today().strftime(_format)
 
   def time_string(self, *args, **kwargs):
     # https://stackoverflow.com/a/10981895/6213452
     _timestamp = args[0] if len(args) > 0 else kwargs.get("timestamp", self.time_get())
-
-    if _timestamp:
-      from datetime import datetime as DATE_PROVIDER
-      return DATE_PROVIDER.utcfromtimestamp(float(_timestamp))
-
-    self.require("time", "TIME")
-    return self.TIME.ctime()
+    return EntityTime(_timestamp, **kwargs).string
 
   def time_elapsed(self, *args, **kwargs):
     _from = args[0] if len(args) > 0 else kwargs.get("from", self.time_get())
     _human_readable = args[1] if len(args) > 1 else kwargs.get("human_readable", False)
     _seconds_elapsed = _from - self.start_time
 
-    self.require("datetime", "DATETIME")
-    _time_delta = self.DATETIME.timedelta(seconds=_seconds_elapsed)
+    _time_delta = self.DateTime.DeltaTime.timedelta(seconds=_seconds_elapsed)
     _res_time = str(_time_delta)
 
     if _human_readable:
       _res_time = self.time_string(_time_delta)
 
     return _res_time
+
+  def time_get(self, *args, **kwargs):
+    self.pinned_time = EntityTime(**kwargs).timestamp
+    return self.pinned_time
 
   def time_start(self, *args, **kwargs):
     self.start_time = self.time_get()

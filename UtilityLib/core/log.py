@@ -1,6 +1,6 @@
 from .time import TimeUtility
 import logging as _Logging
-from ..lib.entity import EntityPath
+from ..lib.path import EntityPath
 
 class _ColoredFormatter(_Logging.Formatter):
   BLACK = '\x1b[30m'

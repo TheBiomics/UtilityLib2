@@ -3,7 +3,7 @@ import importlib as MODULE_IMPORTER
 import os as _OS
 import sys as _SYSTEM
 from functools import lru_cache as CacheMethod
-from ..lib.entity import EntityPath
+from ..lib.path import EntityPath
 
 class BaseUtility:
   __name__= __name__

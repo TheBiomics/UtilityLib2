@@ -1,11 +1,11 @@
 from .utility import UtilityManager
 from .lib.obj import ObjDict
-from .lib.entity import EntityPath
+from .lib.path import EntityPath
 
 class ProjectManager(UtilityManager):
   name = "project"
   config_version = 1
-  config_subversion = 20240600
+  config_subversion = 20241000
   path_config = None
 
   def __init__(self, *args, **kwargs):
@@ -24,6 +24,41 @@ class ProjectManager(UtilityManager):
 
     return data
 
+  def create_file_backup(self, *args, **kwargs):
+    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+    _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else None)
+
+    _path_file = EntityPath(_path_file)
+    _path_backup = EntityPath(_path_backup)
+
+    if _path_file is None or not _path_file.exists():
+      return
+
+    if not _path_backup.exists():
+      # It's a backup file path
+      if not _path_backup.parent().exists():
+        _path_backup.parent().validate()
+    else:
+      _path_backup = _path_backup / _path_file.with_suffix(f'.{self.timestamp}{_path_file.suffix}').name
+
+    _path_file.copy(_path_backup)
+
+    return _path_backup.exists()
+
+  def get_file_backups(self, *args, **kwargs):
+    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+    _path_file = EntityPath(_path_file)
+    _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else _path_file if _path_file.is_dir() else _path_file.parent())
+    _path_backup = EntityPath(_path_backup)
+
+    return _path_backup.search(f"{_path_file.stem}*{_path_file.suffix}")
+
+  def get_file_backup(self, *args, **kwargs):
+    """Get latest file backup"""
+    *_backups, = self.get_file_backups(*args, **kwargs)
+    sorted(_backups, key=lambda _x: self.get_parts(_x, -2, '.'), reverse=True)
+    return _backups[0] if len(_backups) > 0 else None
+
   toml_path = "~/UtilityLib-Project.toml"
   toml_data = ObjDict()
 
@@ -38,17 +73,22 @@ class ProjectManager(UtilityManager):
 
     return self.toml_data
 
+  load_toml = read_toml
+  get_toml = read_toml
+  from_toml = read_toml
+
   def _default_toml_str_func(self, data, *args, **kwargs):
     if data is None:
-      return None
+      return None, False
 
-    return str(data)
+    return super()._default_toml_str_func(data)
 
   def convert_to_toml_obj(self, data={}) -> str:
     _toml_str = ""
     if data and self.require('toml', 'TOML'):
       self.log_debug('PROJECT_01: Dumping TOML data')
       _toml_str = self.recursive_map(data)
+      _toml_str = data
       _toml_str = self.TOML.dumps(_toml_str)
 
     return _toml_str
@@ -66,6 +106,8 @@ class ProjectManager(UtilityManager):
 
     self.toml_path.write(_toml_str)
     return self.toml_path.exists()
+
+  to_toml = write_toml
 
   def set_config_path(self, *args, **kwargs):
     self.update_attributes(self, kwargs)

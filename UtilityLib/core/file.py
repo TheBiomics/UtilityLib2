@@ -1,6 +1,6 @@
 from .db import DatabaseUtility
 from ..lib.obj import ObjDict
-from ..lib.entity import EntityPath
+from ..lib.path import EntityPath
 
 class FileSystemUtility(DatabaseUtility):
   def __init__(self, *args, **kwargs):
@@ -307,6 +307,78 @@ class FileSystemUtility(DatabaseUtility):
   extract_zip = _uncompress_archive
   unzip = _uncompress_archive
   uncompress = _uncompress_archive
+
+  def _recursive_list_dir_items(self, *args, **kwargs):
+    _path = kwargs.get('path', args[0] if len(args) > 0 else None)
+    _path_details = kwargs.get('path_details', args[1] if len(args) > 1 else self.path_base / f'path-details.{self.timestamp[:10]}.tsv')
+
+    if not _path or not _path.exists():
+      return
+
+    if not _path_details.exists():
+      _head = ("file_dir",
+          "file_name",
+          "file_created",
+          "file_modified",
+          "file_accessed",
+          "file_size")
+
+      _head = "\t".join(_head)
+      _head = _head + "\n"
+      (_path_details).write_text(_head)
+
+    if _path.is_file():
+      _data = (str(_path.parent().full_path),
+          str(_path.name),
+          str(_path.stats.st_ctime),
+          str(_path.stats.st_mtime),
+          str(_path.stats.st_atime),
+          str(_path.size))
+
+      _data = "\t".join(_data)
+      _data = _data + "\n"
+      (_path_details).write_text(_data)
+
+    elif _path.is_dir():
+      for _item in _path.items:
+        self._recursive_list_dir_items(_item, _path_details)
+    else:
+      self.log_error(f'{_path} is neither a dir or file.')
+
+  def get_item_details(self, *args, **kwargs):
+    _path = kwargs.get('path', args[0] if len(args) > 0 else None)
+
+    _path = EntityPath(_path)
+    _ustamp = str(self.timestamp)[:10]
+
+    _path_details = kwargs.get('path_details', args[1] if len(args) > 1 else _path.with_suffix(f'.items-{_ustamp}.tsv'))
+    _level = kwargs.get('level', args[1] if len(args) > 1 else -1) # -1 for all, 0 for one recursion
+    _flag_sqlite = kwargs.get('flag_sqlite', args[2] if len(args) > 2 else False)
+
+    if not _path or not _path.exists():
+      return
+
+    _path_details_gz = _path.with_suffix(f'.items-{_ustamp}.tsv.gz')
+
+    if _path_details.exists():
+      self.log_warning('Deleting existing details file.')
+
+    if _path_details_gz.exists():
+      _path_details_gz.move(_path_details_gz.with_suffix(f".{_path_details_gz.suffix}.bak"))
+
+    self._recursive_list_dir_items(_path, _path_details, level=_level)
+
+    self.gz(_path_details, flag_move=True)
+
+    # Get dataframe from the
+    _item_details = self.read_tsv(_path_details_gz)
+
+    """SQLite Takes More Space Than File"""
+    if _flag_sqlite:
+      self.conect_sqlite(self.config.details_file.with_suffix('.db'))
+      _item_details.to_sql(self.config.details_file.stem, self.engine, index=False)
+
+    return _path_details_gz, _item_details
 
   def list_zip_items(self, *args, **kwargs):
     self.path_zip = args[0] if len(args) > 0 else kwargs.get("path_zip", getattr(self, "path_zip"))

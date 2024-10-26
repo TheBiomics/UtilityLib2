@@ -1,5 +1,5 @@
 from .file import FileSystemUtility
-from ..lib.entity import EntityPath
+from ..lib.path import EntityPath
 
 from tqdm.auto import tqdm as _TQDMPB
 
@@ -356,7 +356,10 @@ class DataUtility(FileSystemUtility):
   _toml_exclude_private_keys = True
 
   def _default_toml_str_func(self, data, *args, **kwargs):
-    return str(data), True
+    if not isinstance(data, (str, float, int, bool)):
+      data = str(data)
+
+    return data, True
 
   def recursive_map(self, data, func=None, key=None):
     """Recusrively maps a function to values of Map or Iterables
@@ -373,31 +376,33 @@ class DataUtility(FileSystemUtility):
     if func is None or not callable(func):
       func = self._default_toml_str_func
 
-    from collections.abc import Mapping, Iterable
+    from collections.abc import Mapping
 
     if isinstance(data, Mapping):
       _new_data = type(data)()
       for _k, _v in data.items():
-
         if self._toml_exclude_private_keys and isinstance(_k, (str)) and _k.startswith("_"):
           continue
 
         _new_val = self.recursive_map(_v, func, _k)
 
+        # self._toml_default_include???
         if not _new_val is None:
           _new_data[_k] = _new_val
 
       return _new_data
     elif isinstance(data, (list, tuple)):
       return type(data)(self.recursive_map(item, func, idx) for idx, item in enumerate(data) if item is not None)
-    elif isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
+    elif DataUtility.is_iterable(data):
       return type(data)(self.recursive_map(item, func, key) for item in data)
     else:
       result = func(data, key)
+
       if isinstance(result, tuple) and len(result) == 2:
         new_value, include = result
       else:
         new_value, include = result, self._toml_default_include
+
       return new_value if include else None
 
   @staticmethod
@@ -522,7 +527,7 @@ class DataUtility(FileSystemUtility):
       .flatten(list|tuple, 2)
     """
     _obj = args[0] if len(args) > 0 else kwargs.get("obj")
-    return hasattr(_obj, '__iter__') and not isinstance(_obj, str)
+    return hasattr(_obj, '__iter__') and not isinstance(_obj, (str, bytes))
 
   @staticmethod
   def flatten(_nested, _level=99, _depth=0):
@@ -577,7 +582,7 @@ class DataUtility(FileSystemUtility):
     _position = kwargs.get("position", args[1] if len(args) > 1 else -3)
     _delimiter = kwargs.get("delimiter", args[2] if len(args) > 2 else "/")
 
-    _text = _text.split(_delimiter)
+    _text = str(_text).split(_delimiter)
     return _text[_position]
 
   def common_substrings(self, *args, **kwargs):
