@@ -33,7 +33,7 @@ class BaseUtility:
 
   @path_base.setter
   def path_base(self, path):
-    self._path_base = EntityPath(path)
+    self._path_base = EntityPath(path) if path else EntityPath(self.OS.getcwd())
 
     if self._path_base and self._path_base.exists():
       self.OS.chdir(self._path_base)

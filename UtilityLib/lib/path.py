@@ -468,12 +468,12 @@ class EntityPath(Path):
   def __add__(self, what=''):
     return self / what
 
-  def __mod__(self, what=''):
+  def __mod__(self, *args):
     """Modulo operand operation on EntityPath"""
     _self_str = self.full_path
 
     try:
-      return EntityPath(_self_str % str(what))
+      return EntityPath(_self_str % args)
     except TypeError as _e:
       print(f"TypeError: Incorrect format argument passed: {_e}")
       return None

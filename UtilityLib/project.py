@@ -42,21 +42,14 @@ class ProjectManager(UtilityManager):
   get_toml = read_toml
   from_toml = read_toml
 
-  def _default_toml_str_func(self, data, *args, **kwargs):
-    if data is None:
-      return None, False
-
-    return super()._default_toml_str_func(data)
-
   def convert_to_toml_obj(self, data={}) -> str:
-    _toml_str = ""
+    _toml_obj = ""
     if data and self.require('toml', 'TOML'):
       self.log_debug('PROJECT_01: Dumping TOML data')
-      _toml_str = self.recursive_map(data)
-      _toml_str = data
-      _toml_str = self.TOML.dumps(_toml_str)
+      _toml_obj = self.recursive_map(data, func=self._default_toml_str_func)
+      _toml_obj = self.TOML.dumps(_toml_obj)
 
-    return _toml_str
+    return _toml_obj
 
   def write_toml(self, *args, **kwargs):
     """Writes given object to the provided path"""

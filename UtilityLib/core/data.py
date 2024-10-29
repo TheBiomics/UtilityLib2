@@ -356,6 +356,12 @@ class DataUtility(FileSystemUtility):
   _toml_exclude_private_keys = True
 
   def _default_toml_str_func(self, data, *args, **kwargs):
+    if data is None:
+      return None, False
+
+    if isinstance(data, (EntityPath)):
+      data = EntityPath(data).full_path
+
     if not isinstance(data, (str, float, int, bool)):
       data = str(data)
 
@@ -374,7 +380,7 @@ class DataUtility(FileSystemUtility):
     """
 
     if func is None or not callable(func):
-      func = self._default_toml_str_func
+      func = print
 
     from collections.abc import Mapping
 
@@ -398,12 +404,12 @@ class DataUtility(FileSystemUtility):
     else:
       result = func(data, key)
 
-      if isinstance(result, tuple) and len(result) == 2:
-        new_value, include = result
+      if isinstance(result, (tuple, list)) and len(result) == 2:
+        _new_value, _include = result
       else:
-        new_value, include = result, self._toml_default_include
+        _new_value, _include = result, self._toml_default_include
 
-      return new_value if include else None
+      return _new_value if _include else None
 
   @staticmethod
   def filter(*args, **kwargs):

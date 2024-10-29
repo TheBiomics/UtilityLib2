@@ -81,7 +81,7 @@ class LoggingUtility(TimeUtility):
       self.LogHandler.addHandler(_fh)
 
   def set_logging(self, *args, **kwargs):
-    """Logging Setup"""
+    """Logging Setup for File Log and Console Log."""
 
     if self.log_file_path is None:
       self.log_file_path = EntityPath(self.log_file_name)
@@ -90,7 +90,7 @@ class LoggingUtility(TimeUtility):
       return
 
     self.LogHandler = _Logging.getLogger(self.name)
-    # self.LogHandler.setLevel(_Logging.DEBUG)
+    self.LogHandler.setLevel(_Logging.DEBUG)
 
     if self.LogHandler.hasHandlers:
       for _h in list(self.LogHandler.handlers):
