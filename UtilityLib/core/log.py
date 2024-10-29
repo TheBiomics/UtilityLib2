@@ -50,22 +50,18 @@ class LoggingUtility(TimeUtility):
     # self._set_file_log_handler()
 
   LogHandler = None
-  log_level = 'DEBUG'
+  log_level = _Logging.DEBUG
 
   def _set_console_log_handler(self, *args, **kwargs):
     """Set Console Log Handler"""
     if not self.log_to_console is True:
       return
 
-    _log_level = _Logging.DEBUG
     if isinstance(self.log_level, (str)):
-      self.log_level = self.log_level.upper()
-      _log_level = getattr(_Logging, self.log_level, _log_level)
-    elif isinstance(self.log_level, (int)):
-      _log_level = self.log_level
+      self.log_level = getattr(_Logging, self.log_level.upper(), _Logging.INFO)
 
     _ch = _Logging.StreamHandler()
-    _ch.setLevel(_log_level)
+    _ch.setLevel(self.log_level)
     _fmt = _ColoredFormatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
     _ch.setFormatter(_fmt)
 
@@ -94,7 +90,7 @@ class LoggingUtility(TimeUtility):
       return
 
     self.LogHandler = _Logging.getLogger(self.name)
-    self.LogHandler.setLevel(_Logging.DEBUG)
+    # self.LogHandler.setLevel(_Logging.DEBUG)
 
     if self.LogHandler.hasHandlers:
       for _h in list(self.LogHandler.handlers):
@@ -103,9 +99,9 @@ class LoggingUtility(TimeUtility):
     self._set_console_log_handler()
     self._set_file_log_handler()
 
-  def __log(self, *args, **kwargs):
-    _log_type = kwargs.pop('log_type', args[1] if len(args) > 1 else self.log_type)
+  def _log(self, *args, **kwargs) -> None:
     _message = kwargs.pop('text', args[0] if len(args) > 0 else "EMPTY MESSAGE")
+    _log_type = kwargs.pop('log_type', args[1] if len(args) > 1 else self.log_type)
 
     if self.LogHandler is None:
       self.set_logging()
@@ -117,34 +113,37 @@ class LoggingUtility(TimeUtility):
       else:
         print(_message)
 
+  report = _log
+  log = _log
+
   def log_debug(self, *args, **kwargs):
     kwargs.update({"log_type": "debug"})
-    return self.__log(*args, **kwargs)
+    return self._log(*args, **kwargs)
 
   debug = log_debug
 
   def log_info(self, *args, **kwargs):
     kwargs.update({"log_type": "info"})
-    return self.__log(*args, **kwargs)
+    return self._log(*args, **kwargs)
 
   info = log_info
   log_success = log_info
 
   def log_warning(self, *args, **kwargs):
     kwargs.update({"log_type": "warning"})
-    return self.__log(*args, **kwargs)
+    return self._log(*args, **kwargs)
 
   warning = log_warning
 
   def log_error(self, *args, **kwargs):
     kwargs.update({"log_type": "error"})
-    return self.__log(*args, **kwargs)
+    return self._log(*args, **kwargs)
 
   error = log_error
 
   def log_critical(self, *args, **kwargs):
     kwargs.update({"log_type": "critical"})
-    return self.__log(*args, **kwargs)
+    return self._log(*args, **kwargs)
 
   log_fail = log_critical
   emergency = log_critical

@@ -1,5 +1,4 @@
 from .db import DatabaseUtility
-from ..lib.obj import ObjDict
 from ..lib.path import EntityPath
 
 class FileSystemUtility(DatabaseUtility):
@@ -10,11 +9,49 @@ class FileSystemUtility(DatabaseUtility):
     self.require('shutil', 'SHUTIL')
     self.require('json', 'JSON')
 
-  def backup(self, *args, **kwargs):
-    _file = args[0] if len(args) > 0 else kwargs.get("file")
-    _ext = self.ext(_file)
-    _copy_name = self.change_ext(self.timestamp + f".{_ext}")
-    return self.copy(_file, _copy_name)
+  def _backup_file(self, *args, **kwargs):
+    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+    _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else None)
+
+    _path_file = EntityPath(_path_file)
+
+    if _path_file is None or not _path_file.is_file():
+      return
+
+    _file_stamped_name = _path_file.with_suffix(f'.{self.timestamp}{_path_file.suffix}').name
+
+    if not isinstance(_path_backup, (EntityPath, str)):
+      _path_backup = _path_file.parent()
+
+    if _path_backup.exists() and _path_backup.is_dir():
+      _path_backup = _path_backup / _file_stamped_name
+    elif _path_backup.suffix.startswith('.'):
+      _path_backup.parent().validate()
+    else:
+      _path_backup.validate()
+      _path_backup = _path_backup / _file_stamped_name
+
+    _path_file.copy(_path_backup)
+
+    return _path_backup.exists()
+
+  backup = _backup_file
+  create_file_backup = _backup_file
+  backup_file = _backup_file
+
+  def get_file_backups(self, *args, **kwargs):
+    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+    _path_file = EntityPath(_path_file)
+    _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else _path_file if _path_file.is_dir() else _path_file.parent())
+    _path_backup = EntityPath(_path_backup)
+
+    return _path_backup.search(f"{_path_file.stem}*{_path_file.suffix}")
+
+  def get_file_backup(self, *args, **kwargs):
+    """Get latest file backup"""
+    *_backups, = self.get_file_backups(*args, **kwargs)
+    sorted(_backups, key=lambda _x: self.get_parts(_x, -2, '.'), reverse=True)
+    return _backups[0] if len(_backups) > 0 else None
 
   def rename(self, *args, **kwargs):
     _old_name = args[0] if len(args) > 0 else kwargs.get("from")
@@ -109,9 +146,9 @@ class FileSystemUtility(DatabaseUtility):
       Note: Directory architecture is not maintained for now.
 
       @params
-      0|path_tgz
-      1|files_path
-      2|mode (default: w:gz)
+      :param path_tgz|0:
+      :param files_path|1:
+      :param mode|2: (default: w:gz)
     """
     self.path_tgz = kwargs.get("path_tgz", args[0] if len(args) > 0 else getattr('path_tgz', None))
     _file_paths = kwargs.get("files_path", args[1] if len(args) > 1 else [])
@@ -345,7 +382,7 @@ class FileSystemUtility(DatabaseUtility):
     else:
       self.log_error(f'{_path} is neither a dir or file.')
 
-  def get_item_details(self, *args, **kwargs):
+  def _dir_file_inventory(self, *args, **kwargs):
     _path = kwargs.get('path', args[0] if len(args) > 0 else None)
 
     _path = EntityPath(_path)
@@ -379,6 +416,10 @@ class FileSystemUtility(DatabaseUtility):
       _item_details.to_sql(self.config.details_file.stem, self.engine, index=False)
 
     return _path_details_gz, _item_details
+
+  dir_details = _dir_file_inventory
+  get_item_details = _dir_file_inventory
+  file_stats = _dir_file_inventory
 
   def list_zip_items(self, *args, **kwargs):
     self.path_zip = args[0] if len(args) > 0 else kwargs.get("path_zip", getattr(self, "path_zip"))
@@ -884,32 +925,31 @@ class FileSystemUtility(DatabaseUtility):
       downloads a url content and returns content of the file
       uses urlretrieve as fallback
 
-      @return
-      str|list
-      None
-
       @params
-      0|url (str):
-      1|destination (None|str|path):
-      2|return_text (bool):
-      3|overwrite (False|bool): forces to download the content if file already exists
-      4|form_values (None|dict): values to be submitted while downloading file from url USING GET METHOD
-      5|headers: headers to set for downloading files
-      6|method ("get"|"post"): method of downloading file
+      :param url|0: (str)
+      :param destination|1: (None|str|path)
+      :param return_text|2: (bool)
+      :param overwrite|3: (False|bool)= forces to download the content if file already exists
+      :param form_values|4: (None|dict)= values to be submitted while downloading file from url USING GET METHOD
+      :param headers|5: headers to set for downloading files
+      :param method|6: ("get"|"post")= method of downloading file
+
+      @returns
+      :return: bool
 
       @update
       * v20220905
         - Removed json parameter to use form_values instead of json
     """
     _url = args[0] if len(args) > 0 else kwargs.get("url")
-    _destination = args[1] if len(args) > 1 else kwargs.get("destination", None)
-    _return_text = args[2] if len(args) > 2 else kwargs.get("return_text", False)
-    _overwrite = args[3] if len(args) > 3 else kwargs.get("overwrite", False)
-    _form_values = args[4] if len(args) > 4 else kwargs.get("form_values", None)
-    _headers = args[5] if len(args) > 5 else kwargs.get("headers", {})
-    _method = args[6] if len(args) > 6 else kwargs.get("method", "get")
+    _destination = kwargs.get("destination", args[1] if len(args) > 1 else None)
+    _return_text = kwargs.get("return_text", args[2] if len(args) > 2 else False)
+    _overwrite = kwargs.get("overwrite", args[3] if len(args) > 3 else False)
+    _form_values = kwargs.get("form_values", args[4] if len(args) > 4 else None)
+    _headers = kwargs.get("headers", args[5] if len(args) > 5 else {})
+    _method = kwargs.get("method", args[6] if len(args) > 6 else "get")
 
-    _default_headers = {'User-agent': 'Mozilla/5.0'}
+    _default_headers = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
     _default_headers.update(_headers)
 
     if not _overwrite and self.check_path(_destination):

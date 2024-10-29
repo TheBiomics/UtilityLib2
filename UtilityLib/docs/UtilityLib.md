@@ -2,7 +2,11 @@
 
 # Updates/Revisions/Versions
 
+## 2.17
+* Event Scheduler
+
 ## 2.16
+* Path Entity
 
 ## 2.12
 

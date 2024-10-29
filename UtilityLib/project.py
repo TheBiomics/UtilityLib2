@@ -24,41 +24,6 @@ class ProjectManager(UtilityManager):
 
     return data
 
-  def create_file_backup(self, *args, **kwargs):
-    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
-    _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else None)
-
-    _path_file = EntityPath(_path_file)
-    _path_backup = EntityPath(_path_backup)
-
-    if _path_file is None or not _path_file.exists():
-      return
-
-    if not _path_backup.exists():
-      # It's a backup file path
-      if not _path_backup.parent().exists():
-        _path_backup.parent().validate()
-    else:
-      _path_backup = _path_backup / _path_file.with_suffix(f'.{self.timestamp}{_path_file.suffix}').name
-
-    _path_file.copy(_path_backup)
-
-    return _path_backup.exists()
-
-  def get_file_backups(self, *args, **kwargs):
-    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
-    _path_file = EntityPath(_path_file)
-    _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else _path_file if _path_file.is_dir() else _path_file.parent())
-    _path_backup = EntityPath(_path_backup)
-
-    return _path_backup.search(f"{_path_file.stem}*{_path_file.suffix}")
-
-  def get_file_backup(self, *args, **kwargs):
-    """Get latest file backup"""
-    *_backups, = self.get_file_backups(*args, **kwargs)
-    sorted(_backups, key=lambda _x: self.get_parts(_x, -2, '.'), reverse=True)
-    return _backups[0] if len(_backups) > 0 else None
-
   toml_path = "~/UtilityLib-Project.toml"
   toml_data = ObjDict()
 
@@ -165,6 +130,26 @@ class ProjectManager(UtilityManager):
       _def_prepend = _static_config.get(_key, "")
 
     return f"{_glue}".join([_def_prepend, _val])
+
+  Schedule_Event_Refs = []
+  def schedule_event(self, *args, **kwargs):
+    """Schedule event in background
+    """
+    from .lib.schedule import ScheduleEvent
+    if not callable(args[0]) or not kwargs.get('func') or not callable(kwargs.get('func')):
+      self.log_error('PROJECT: Cannot schedule event as callable method not provided.')
+    else:
+      _se = ScheduleEvent(*args, **kwargs)
+      self.Schedule_Event_Refs.append(_se)
+      self.log_debug('Event scheduled. Check Schedule_Event_Refs[] for reference.')
+
+    return self.Schedule_Event_Refs
+
+  def stop_all_schedule_events(self):
+    for _se in self.Schedule_Event_Refs:
+      _se.stop()
+
+    return True
 
   def _apply_method_to_file(self, file_ref, operation, *args, **kwargs):
     """All operations are not op_file compatible due to variable number of arguments
