@@ -4,6 +4,9 @@ from ..lib.path import EntityPath
 from tqdm.auto import tqdm as _TQDMPB
 
 class DataUtility(FileSystemUtility):
+  """DataUtility class
+  To provide libraries, references, and methods helpful for quick data processing and filtering
+  """
 
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
@@ -19,19 +22,28 @@ class DataUtility(FileSystemUtility):
   type_numbers = (int, float, complex)
   def is_numeric(self, *args, **kwargs):
     """Checks if variable is numeric, int, float, or complex"""
-    return self.check_instance(*args, **kwargs.update({"instances": self.type_numbers}))
+    kwargs.update({"instances": self.type_numbers})
+    return self.check_instance(*args, **kwargs)
+
+  type_none = (type(None),)
+  def is_none(self, *args, **kwargs):
+    """Checks if variable is None"""
+    kwargs.update({"instances": self.type_none})
+    return self.check_instance(*args, **kwargs)
 
   type_integers = (int)
   def is_int(self, *args, **kwargs):
     """Checks if variable is integer not float, string or other types"""
-    return self.check_instance(*args, **kwargs.update({"instances": self.type_integers}))
+    kwargs.update({"instances": self.type_integers})
+    return self.check_instance(*args, **kwargs)
 
   is_digit = is_int
 
   type_arrays = (list, set, tuple)
   def is_array(self, *args, **kwargs):
     """Check if list, tuple, set, or numpy array"""
-    return self.check_instance(*args, **kwargs.update({"instances": self.type_arrays}))
+    kwargs.update({"instances": self.type_arrays})
+    return self.check_instance(*args, **kwargs)
 
   is_list = is_array
   is_set = is_array
@@ -40,14 +52,16 @@ class DataUtility(FileSystemUtility):
   type_non_arrays = (int, float, complex, str, bool)
   def is_singular(self, *args, **kwargs):
     """Checks if not iterable or string, int, or float"""
-    return self.check_instance(*args, **kwargs.update({"instances": self.type_non_arrays}))
+    kwargs.update({"instances": self.type_non_arrays})
+    return self.check_instance(*args, **kwargs)
 
   is_non_iterable = is_singular
 
   type_maps = (dict)
   def is_map(self, *args, **kwargs):
     """Checks if dict, named tuple, or dataframe"""
-    return self.check_instance(*args, **kwargs.update({"instances": self.type_maps}))
+    kwargs.update({"instances": self.type_maps})
+    return self.check_instance(*args, **kwargs)
 
   is_dict = is_map
 
@@ -59,7 +73,8 @@ class DataUtility(FileSystemUtility):
   type_bools =  (bool)
   def is_bool(self, *args, **kwargs):
     """Checks if variable is a boolean"""
-    return self.check_instance(*args, **kwargs.update({"instances": self.type_bools}))
+    kwargs.update({"instances": self.type_bools})
+    return self.check_instance(*args, **kwargs)
 
   # Iteration
   _loop_obj = None
@@ -204,36 +219,13 @@ class DataUtility(FileSystemUtility):
 
       return self.PD.ExcelWriter(_excel, **_options)
 
-  def from_excel(self, *args, **kwargs):
-    """
-    Arguments:
-      0|excel: Either openpyxl writer or path to excel
-      1|sheet: Name of the sheet
-
-    Returns:
-      pandas.DataFrame
-
-    Example:
-      _PM.from_excel(<path.xlsx>, _df, 'sheet_name', **excel_options, **pyxl_options)
-
-    """
-
-    _excel = args[0] if len(args) > 0 else kwargs.get("excel")
-    _sheet = args[1] if len(args) > 1 else kwargs.get("sheet")
-    kwargs['sheet'] = _sheet
-
-    self.require('pandas', 'PD')
-    _excel = self.PD.read_excel(_excel, **kwargs)
-
-    return _excel
-
   def fix_column_names(self, *args, **kwargs):
     _df = args[0] if len(args) > 0 else kwargs.get("df")
     _df.columns = [self.text_to_slug(_col).replace('-', '_') for _col in _df.columns]
     return _df
 
-  def pd_excel(self, *args, **kwargs):
-    """
+  def _PD_DF_to_Excel(self, *args, **kwargs):
+    """Writes in excel file (Purpose: To write multiple sheets)
     Arguments:
       0|excel: Either openpyxl writer or path to excel
       1|df: Pandas DataFrame to be written
@@ -257,7 +249,7 @@ class DataUtility(FileSystemUtility):
     _excel_options = kwargs.get("excel_options", args[3] if len(args) > 3 else {'index': False})
 
     self.require_from('pathlib', 'Path', 'Path')
-    if isinstance(_excel_writer, (str, self.Path)):
+    if isinstance(_excel_writer, (str, EntityPath)):
       _excel_writer = self.pd_excel_writer(str(_excel_writer), **kwargs)
 
     _df.copy().to_excel(_excel_writer, sheet_name=_sheet_name, **_excel_options)
@@ -265,6 +257,9 @@ class DataUtility(FileSystemUtility):
     _excel_writer.close()
     _excel_writer.handles = None
     return _excel_writer
+
+  to_excel = _PD_DF_to_Excel
+  write_excel = _PD_DF_to_Excel
 
   def DF(self, *args, **kwargs):
     _data = args[0] if len(args) > 0 else kwargs.get("data")
@@ -295,6 +290,50 @@ class DataUtility(FileSystemUtility):
 
   read_tsv = _tsv_file_to_DF
   pd_tsv = _tsv_file_to_DF
+
+  def _PD_read_excel(self, *args, **kwargs):
+    """
+    @params
+    :param excel_path|0: Either openpyxl writer or path to excel
+    :param sheet_name|1: Name of the sheet
+
+    :return: pandas.DataFrame|None
+
+    Example:
+      .read_excel(<path.xlsx>, _df, 'sheet_name', **excel_options, **pyxl_options)
+
+    """
+
+    _excel_path = kwargs.get("excel_path", args[0] if len(args) > 0 else None)
+    _sheet_name = kwargs.get("sheet_name", args[1] if len(args) > 1 else None)
+    kwargs['sheet_name'] = _sheet_name
+
+    if self.is_none(_excel_path):
+      return None
+
+    self.require('pandas', 'PD')
+    _excel = self.PD.read_excel(_excel_path, **kwargs)
+
+    return _excel
+
+  from_excel = _PD_read_excel
+  read_excel = _PD_read_excel
+  pd_excel = _PD_DF_to_Excel # Will be migrated to read excel instead of reading i.e., pd_excel = from_excel
+
+  def sync_excel_sheet(self, *args, **kwargs):
+    """Reads excel sheet if exists else writes DataFrame to the sheet
+      Use other methods to read write or overwrite.
+    """
+    _excel_path = kwargs.get("excel_path", args[0] if len(args) > 0 else None)
+    _sheet_name = kwargs.get("sheet_name", args[1] if len(args) > 1 else None)
+    kwargs['sheet_name'] = _sheet_name
+
+    _excel_path = EntityPath(_excel_path)
+
+    if _excel_path.exists() and _excel_path.suffixe in ['.xlsx', '.xls']:
+      return self.read_excel(*args, **kwargs)
+    else:
+      return self.to_excel(*args, **kwargs)
 
   # Helpers
 
@@ -528,11 +567,8 @@ class DataUtility(FileSystemUtility):
   def is_iterable(*args, **kwargs):
     """
       Checks for iterables except str
-
-      @usage
-      .flatten(list|tuple, 2)
     """
-    _obj = args[0] if len(args) > 0 else kwargs.get("obj")
+    _obj = kwargs.get("obj", args[0] if len(args) > 0 else None)
     return hasattr(_obj, '__iter__') and not isinstance(_obj, (str, bytes))
 
   @staticmethod
@@ -559,20 +595,21 @@ class DataUtility(FileSystemUtility):
       ["AUGC"] will be treated as it is
 
       @params
-      0|items (list): Object(s) to unpack using *
-      1|repeat (1|int)
+      :param items|*: (list) Object(s) to unpack using *
+      :param repeat: (1|int)
 
       @example
-      combination(["AU", "GC"], 1)
-      combination(["AUGC"], 8)
-      combination(["A", "U", "G", "C"], 8)
+      product("AU", "GC")
+      product("AUGC", repeat=3)
+      product(["AU", "GC"], repeat=2)
+      product(["A", "U", "G", "C"], repeat=8)
 
     """
-    _items = kwargs.get("items", args[0] if len(args) > 0 else [])
-    _repeat = kwargs.get("repeat", args[1] if len(args) > 1 else 1)
+    _items = kwargs.get("items", args)
+    _items = [str(_s) if self.is_numeric(_s) else _s for _s in _items]
 
     self.require("itertools", "IT")
-    return self.IT.product(*_items, repeat=_repeat)
+    return self.IT.product(*_items, **kwargs)
 
   def combinations(self, *args, **kwargs):
     """

@@ -126,15 +126,15 @@ class ProjectManager(UtilityManager):
 
   Schedule_Event_Refs = []
   def schedule_event(self, *args, **kwargs):
-    """Schedule event in background
-    """
+    """Schedule event in background"""
     from .lib.schedule import ScheduleEvent
-    if not callable(args[0]) or not kwargs.get('func') or not callable(kwargs.get('func')):
-      self.log_error('PROJECT: Cannot schedule event as callable method not provided.')
-    else:
+    _func = kwargs.get('func', args[0] if len(args) > 0 else None)
+    if callable(_func):
       _se = ScheduleEvent(*args, **kwargs)
       self.Schedule_Event_Refs.append(_se)
       self.log_debug('Event scheduled. Check Schedule_Event_Refs[] for reference.')
+    else:
+      self.log_error('PROJECT: Cannot schedule event as callable method not provided.')
 
     return self.Schedule_Event_Refs
 

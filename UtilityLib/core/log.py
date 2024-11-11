@@ -113,6 +113,11 @@ class LoggingUtility(TimeUtility):
       else:
         print(_message)
 
+  def log_separator(self, sep_len=60):
+    _default_len = 20
+    _total_len = 80+_default_len
+    print('\033[94m' + ('-' * _total_len) + '\033[0m')
+
   report = _log
   log = _log
 

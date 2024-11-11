@@ -18,7 +18,7 @@ class FileSystemUtility(DatabaseUtility):
     if _path_file is None or not _path_file.is_file():
       return
 
-    _file_stamped_name = _path_file.with_suffix(f'.{self.timestamp}{_path_file.suffix}').name
+    _file_stamped_name = _path_file.name + f'.{self.timestamp}.bkup'
 
     if not isinstance(_path_backup, (EntityPath, str)):
       _path_backup = _path_file.parent()
@@ -45,7 +45,7 @@ class FileSystemUtility(DatabaseUtility):
     _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else _path_file if _path_file.is_dir() else _path_file.parent())
     _path_backup = EntityPath(_path_backup)
 
-    return _path_backup.search(f"{_path_file.stem}*{_path_file.suffix}")
+    return _path_backup.search(f"{_path_file.name}*bkup")
 
   def get_file_backup(self, *args, **kwargs):
     """Get latest file backup"""
@@ -284,6 +284,7 @@ class FileSystemUtility(DatabaseUtility):
     @stats: counts lines in a 7GB gz file in 2min
     """
     _file_path = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+    _read_method = kwargs.get('read_method', open)
 
     # To bypass Pathlib open method call
     _file_path = str(_file_path.resolve())
@@ -294,10 +295,8 @@ class FileSystemUtility(DatabaseUtility):
       "encoding": "utf-8",
       "errors": "ignore",
     }
-    _read_method = open
 
     # If gz compressed
-
     if str(_file_path).endswith('.gz'):
       self.require('gzip', 'GZip')
       _read_method = self.GZip.open
@@ -310,14 +309,18 @@ class FileSystemUtility(DatabaseUtility):
 
     return _num_lines
 
-
   def _uncompress_archive(self, *args, **kwargs):
     """Unpack archive like .zip, .gz, .tar
 
-    @params
-    0|source : eg /mnt/data/drive/downloads/files-1.tar.gz
-    1|destination : /mnt/data/drive/downloads
+    Programs attempted:
+      SHUTIL
+      ZipFile
+      7z Commandline
 
+    :param source|0: eg /mnt/data/drive/downloads/files-1.tar.gz
+    :param destination|1: /mnt/data/drive/downloads
+
+    :return: bool
     """
     _source = kwargs.get("source", args[0] if len(args) > 0 else None)
 
@@ -325,21 +328,35 @@ class FileSystemUtility(DatabaseUtility):
       return None
 
     _source = EntityPath(_source)
+    _destination = kwargs.get("destination", args[1] if len(args) > 1 else _source.parent() / _source.stem)
 
-    _destination = args[1] if len(args) > 1 else kwargs.get("destination", _source.parent() / _source.stem)
+    _destination = EntityPath(_destination)
 
-    self.validate_dir(_destination)
+    if _destination.exists():
+      self.log_warning(f'{_destination} already exists.')
 
-    if self.check_path(_source):
-      self.SHUTIL.unpack_archive(_source, _destination)
+    if _source.exists():
+        try:
+          if _source.has_suffix('.zip'):
+            """Extracts ZIP Files Only"""
+            self.require("zipfile", "ZipHandler")
+            with self.ZipHandler.ZipFile(str(_source), 'r') as zipObj:
+              zipObj.extractall(_destination)
+          else:
+            self.SHUTIL.unpack_archive(_source, _destination)
+        except Exception as _e:
+          # https://stackoverflow.com/a/59327542 ZIP compression 9
+          self.log_debug(f'Error occurred: {_e}')
+          self.log_debug(f'Trying with 7z')
+          self.require('subprocess', 'SubProcess')
+          self.SubProcess.Popen(["7z", "e", f"{_source}", f"-o{_destination}", "-y"])
+
+    if _destination.exists():
       self.log_info(f"Extracted {_source} content in {_destination}.")
-      return True
+    else:
+      self.log_error(f'Failed to extract {_source}.')
 
-      # Extracts ZIP Files Only
-      # with ZipFile(str(_source), 'r') as zipObj:
-      #   zipObj.extractall(des_dir)
-
-    return self.check_path(_destination)
+    return _destination.exists()
 
   extract_zip = _uncompress_archive
   unzip = _uncompress_archive

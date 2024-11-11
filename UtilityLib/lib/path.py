@@ -17,7 +17,7 @@ class EntityPath(Path):
       - Methods like `search`, `has`, and `get_match` allow users to quickly find files or directories using flexible patterns.
 
   3. **File and Directory Operations**: Simplifies common filesystem tasks like reading, writing, moving, copying, and deleting files or directories.
-      - Methods for safely deleting files (`delete` with `force_delete`).
+      - Methods for safely deleting files (`delete` with `is_protected`).
       - List all files, directories, or both using `list_files`, `list_dirs`, or `list_items`.
       - Quick read/write utilities like `read_text`, `write_text`, `head`, and `tail` for file content manipulation.
 
@@ -38,15 +38,17 @@ class EntityPath(Path):
   This class is designed to make filesystem operations more intuitive and reduce repetitive boilerplate code, improving readability and efficiency in path manipulation tasks.
   """
 
-
   _flavour = Path('.')._flavour
-  force_delete = False
 
   def __new__(self, *args, **kwargs):
-    args = list(args)
-    if args:
-      args[0] = str(Path(args[0]).expanduser())
-    return super().__new__(self, *args, **kwargs)
+    _non_none_args = [_a for _a in args if not _a is None or not len(str(_a)) > 0]
+    if _non_none_args:
+      _non_none_args[0] = _non_none_args[0] and str(Path(_non_none_args[0]).expanduser())
+
+    if len(_non_none_args) < len(args) and len(args) == 1:
+      return super().__new__(self, "...")
+
+    return super().__new__(self, *_non_none_args, **kwargs)
 
   def len(self):
     return len(str(self))
@@ -80,6 +82,7 @@ class EntityPath(Path):
     Path.match
     Path.parts
     """
+    help(self)
 
   _is_gz = None
 
@@ -93,7 +96,22 @@ class EntityPath(Path):
   is_compressed = is_gz
 
   @property
+  def has_gz(self):
+    if self.is_gz:
+      return True
+
+    _compressed_path = self + '.gz'
+    if _compressed_path.exists():
+      return True
+
+    return False
+
+  @property
   def ext(self):
+    """False if current path is a directory."""
+    if self.is_dir():
+      return False
+
     return "".join(self.suffixes)
 
   _hash = None
@@ -286,12 +304,13 @@ class EntityPath(Path):
   entities = items
   _all = items
 
-  def delete(self, force_delete=None):
-    self.force_delete = force_delete or self.force_delete
+  is_protected = True
+  def delete(self, is_protected=None):
+    self.is_protected = is_protected if not is_protected is None else self.is_protected
 
     """Delete the file or directory."""
-    if not self.force_delete:
-      raise ValueError(f"{self} is not safe to delete. pass force_delete=True enable accidental deletion.")
+    if self.is_protected:
+      raise ValueError(f"{self} is not safe to delete. pass is_protected=False enable accidental deletion.")
 
     if self.is_file():
       self.unlink()
@@ -299,13 +318,13 @@ class EntityPath(Path):
     elif self.is_dir():
       for _item in self.iterdir():
         if _item.is_dir():
-          EntityPath(_item).delete(force_delete=self.force_delete)
+          EntityPath(_item).delete(is_protected=self.is_protected)
         else:
           _item.unlink()
       self.rmdir()
       return self.exists()
     elif not self.exists():
-      # already deleted or didn't exist
+      # Already deleted or didn't exist
       return self.exists()
     else:
       raise ValueError(f"{self} is neither a file nor a directory.")
@@ -324,7 +343,7 @@ class EntityPath(Path):
 
   def move(self, destination):
     """Move the file or directory to a new location."""
-    if self.force_delete:
+    if self.is_protected:
       return
 
     destination = EntityPath(destination)
@@ -427,6 +446,15 @@ class EntityPath(Path):
   has_file = has
   has_dir = has
 
+  def _has_extension(self, ext=None):
+    if ext is None:
+      return bool(self.suffix) and not self.is_dir()
+
+    return ext in self.suffixes
+
+  has_ext = _has_extension
+  has_suffix = _has_extension
+
   def lower(self):
     return str(self).lower()
 
@@ -465,15 +493,17 @@ class EntityPath(Path):
 
   modified = updated
 
+  def __contains__(self, item):
+    return item in self.parts
+
   def __add__(self, what=''):
-    return self / what
+    return EntityPath((self.full_path) + str(what))
 
   def __mod__(self, *args):
     """Modulo operand operation on EntityPath"""
-    _self_str = self.full_path
 
     try:
-      return EntityPath(_self_str % args)
+      return EntityPath(self.full_path % args)
     except TypeError as _e:
       print(f"TypeError: Incorrect format argument passed: {_e}")
       return None
@@ -491,10 +521,10 @@ class EntityPath(Path):
       try:
         _path_segments = self.parts[:what]
         _remainder_segments = self.parts[what:]
-        return EntityPath(*_path_segments), EntityPath(*_remainder_segments)
+        return EntityPath(*_path_segments)
       except Exception as e:
         print(f"Error occurred during path division: {e}")
-        return None, None
+        return None
     elif isinstance(what, str):
       try:
         _guess_full_segment = [*filter(lambda _x: what in _x or what in _x, self.parts)]
