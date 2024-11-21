@@ -272,23 +272,21 @@ _.queue_final_callback
       self.log_debug(f'CMD_003: Delegating a callback in {_cb_interval}s.')
       self.Threading.Timer(_cb_interval, callback, args=args, kwargs=kwargs)
 
+  _queue_schedule_ref = None
   def queue_final_callback(self, callback=None, *args, **kwargs) -> None:
-    if not callback is None and callable(callback):
-      self.require('threading', 'Threading')
-      _check_thread = self.Threading.Thread(target=self._queue_final_cb_fn_bg_exe, args=(callback, *args), kwargs=kwargs)
-      _check_thread.start()
+    if callback is not None and callable(callback):
+      from ..lib.schedule import ScheduleEvent
+      _cb_interval = kwargs.pop("cb_interval", 60)
+      self._queue_schedule_ref = ScheduleEvent(func=self._queue_final_cb_fn_bg_exe, interval=_cb_interval, args=(callback, *args), **kwargs)
 
   def _queue_final_cb_fn_bg_exe(self, callback, *args, **kwargs) -> None:
-    _cb_interval = kwargs.pop("cb_interval", 60)
-    while True:
-      _job_t, _job_d = self.queue_task_status.total, self.queue_task_status.done
-      if any([_job_d < _job_t, not self.task_queue.empty()]):
-        self.log_debug(f'CMD_004: Job Status: {_job_t-_job_d}/{_job_t} to be done. ~zZ {_cb_interval}s')
-        self.time_sleep(_cb_interval)
-      else:
-        self.log_debug(f'CMD_005: Job Status: All {self.queue_done} job(s) completed. Executing final callback...')
-        callback(*args, **kwargs)
-        break
+    _job_t, _job_d = self.queue_task_status.total, self.queue_task_status.done
+    if any([_job_d < _job_t, not self.task_queue.empty()]):
+      self.log_debug(f'CMD_004: Job Status: {_job_t-_job_d}/{_job_t} to be done. ~zZ')
+    elif self._queue_schedule_ref is not None:
+      self.log_debug(f'CMD_005: Job Status: All {self.queue_done} job(s) completed. Executing final callback...')
+      callback(*args, **kwargs)
+      self._queue_schedule_ref.stop()
 
   def process_queue(self, *args, **kwargs):
     """Process tasks from the queue

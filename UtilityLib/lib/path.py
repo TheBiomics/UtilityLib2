@@ -514,6 +514,11 @@ class EntityPath(Path):
       print(f"Unexpected error occurred: {_e}")
       return None
 
+  # def __iter__(self):
+  #   """Iterates through entities in the directory"""
+  #   for _item in self.items:
+  #     yield _item
+
   def __floordiv__(self, what):
     """Flood Division (// operator) to return based on str or int"""
     if isinstance(what, (int, float)):

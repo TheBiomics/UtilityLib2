@@ -542,6 +542,10 @@ class FileSystemUtility(DatabaseUtility):
   unpickle = read_pickle
   get_pickle = read_pickle
 
+  def get_html(self, *args, **kwargs):
+    _content = self.get_file_content(*args, **kwargs)
+    return self.parse_html(_content, **kwargs)
+
   def read_html(self, *args, **kwargs):
     _source = args[0] if len(args) > 0 else kwargs.get("source")
     _read = self.read_text(_source)
@@ -936,7 +940,7 @@ class FileSystemUtility(DatabaseUtility):
 
     return _sizes[0] if _flag_is_single else _sizes
 
-  def get_file(self, *args, **kwargs):
+  def _GET_URL_CONTENT(self, *args, **kwargs):
     """
       @function
       downloads a url content and returns content of the file
@@ -957,8 +961,10 @@ class FileSystemUtility(DatabaseUtility):
       @update
       * v20220905
         - Removed json parameter to use form_values instead of json
+      @ToDo:
+      * Use wget library for the purpose
     """
-    _url = args[0] if len(args) > 0 else kwargs.get("url")
+    _url = kwargs.get("url", args[0] if len(args) > 0 else None)
     _destination = kwargs.get("destination", args[1] if len(args) > 1 else None)
     _return_text = kwargs.get("return_text", args[2] if len(args) > 2 else False)
     _overwrite = kwargs.get("overwrite", args[3] if len(args) > 3 else False)
@@ -999,6 +1005,10 @@ class FileSystemUtility(DatabaseUtility):
       self.download_content(_url, _destination)
 
     return self.check_path(_destination)
+
+  get_file = _GET_URL_CONTENT
+  get_url_file = _GET_URL_CONTENT
+  get_url = _GET_URL_CONTENT
 
   def _search_dir_filter(self, *args, **kwargs):
     """Search directories using pattern
