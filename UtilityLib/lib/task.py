@@ -65,7 +65,8 @@ class TaskManager():
     return _status
 
   def _iterate_tasks(self, task=None, subtask=None):
-    for _task, _subtasks in self._tasks.items():
+    _all_tasks = self._tasks.copy()
+    for _task, _subtasks in _all_tasks.items():
       if not task is None and not _task == task:
         continue
       for _subtask, _subtask_details in _subtasks.items():

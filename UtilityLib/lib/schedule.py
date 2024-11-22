@@ -12,8 +12,14 @@ class ScheduleManager:
     self.events[_ev_sch.func.__name__] = _ev_sch
     return _ev_sch
 
+  def stop(self, key=None):
+    if key is None:
+      self.stop_all()
+    else:
+      self.events[key].stop()
+
   def stop_all(self):
-    for _ev in self.events:
+    for _, _ev in self.events.items():
       _ev.stop()
 
 class ScheduleEvent:

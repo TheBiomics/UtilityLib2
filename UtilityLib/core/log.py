@@ -102,6 +102,7 @@ class LoggingUtility(TimeUtility):
   def _log(self, *args, **kwargs) -> None:
     _message = kwargs.pop('text', args[0] if len(args) > 0 else "EMPTY MESSAGE")
     _log_type = kwargs.pop('log_type', args[1] if len(args) > 1 else self.log_type)
+    _log_hr = kwargs.pop('hr', args[2] if len(args) > 2 else False)
 
     if self.LogHandler is None:
       self.set_logging()
@@ -110,8 +111,10 @@ class LoggingUtility(TimeUtility):
       _lh = getattr(self.LogHandler, _log_type)
       if _lh:
         _lh(_message)
+        _log_hr and _lh('-' * len(_message))
       else:
         print(_message)
+        _log_hr and print('-' * len(_message))
 
   def log_separator(self, sep_len=60):
     _default_len = 20

@@ -47,6 +47,22 @@ class FileSystemUtility(DatabaseUtility):
 
     return _path_backup.search(f"{_path_file.name}*bkup")
 
+  def clean_file_backups(self, *args, **kwargs):
+    _all = kwargs.get('all', False)
+    _all_backups = self.get_file_backups(*args, **kwargs)
+    _res = None
+
+    try:
+      if not _all:
+        _first, _bkups = next(_all_backups), _all_backups
+      else:
+        _bkups = _all_backups
+      _res = [_bkup.delete(is_protected = False) for _bkup in _bkups]
+    except Exception as _e:
+      self.log_debug(_e)
+
+    return _res
+
   def get_file_backup(self, *args, **kwargs):
     """Get latest file backup"""
     *_backups, = self.get_file_backups(*args, **kwargs)

@@ -52,7 +52,8 @@ class ObjDict(dict):
 
   @property
   def _keys(self):
-    return [_k for _k in self.keys() if not _k.startswith('_')]
+    _ck = [*self.keys()]
+    return [_k for _k in _ck if not _k.startswith('_')]
 
   def __add__(self, other):
     if not self.keys():
@@ -178,11 +179,11 @@ class ObjDict(dict):
 
   def items(self):
     """Return items, excluding those with keys starting with an underscore."""
-    return ((_k, _v) for _k, _v in super().items() if not _k.startswith('_'))
+    return ((_k, self.get(_k)) for _k in self._keys)
 
   def values(self):
     """Return values, excluding those associated with keys starting with an underscore."""
-    return (_v for _, _v in self.items())
+    return (self.get(_k) for _k in self._keys)
 
   def __repr__(self):
     """Custom representation of the dictionary, excluding private keys."""
