@@ -81,6 +81,8 @@ class EntityPath(Path):
     Path.with_suffix
     Path.match
     Path.parts
+    Path.is_absolute
+    Path.resolve
     """
     help(self)
 
@@ -174,7 +176,7 @@ class EntityPath(Path):
     self._hash = _fn_hash.hexdigest()
     return self._hash
 
-  def _read_lines(self, num_lines=None):
+  def _read_lines(self, num_lines=None, strip_nl=False):
     if not self.is_file():
       raise ValueError(f"{self} is not a file.")
 
@@ -182,7 +184,7 @@ class EntityPath(Path):
       if num_lines is None:
         with self.open() as _f:
           for _line in _f:
-              yield _line
+            yield _line.strip('\n') if strip_nl else _line
       else:
         with self.open() as _f:
           for _ in range(int(num_lines)):
@@ -231,7 +233,7 @@ class EntityPath(Path):
     if not self.is_file():
       raise ValueError(f"{self} is not a file.")
 
-    if not method is None and callable(method):
+    if callable(method):
       return method(str(self))
 
     return super().read_text()

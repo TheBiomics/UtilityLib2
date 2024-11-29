@@ -275,3 +275,49 @@ class BaseUtility:
   import_module = _import_single_module
   require = _import_single_module
   require_global = _import_single_module
+
+  def _extract_py_classes(self, *args, **kwargs):
+    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+    _path_file = EntityPath(_path_file)
+    _classes = []
+    if _path_file.is_file():
+      self.require('ast', 'PyAST')
+      _tree = self.PyAST.parse(_path_file.read())
+      _classes = [_n.name for _n in self.PyAST.walk(_tree) if isinstance(_n, self.PyAST.ClassDef)]
+
+    return _classes
+
+  def _py_class_refs(self, *args, **kwargs):
+    _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+    _path_file = EntityPath(_path_file)
+    _classname = kwargs.get('classname', args[1] if len(args) > 1 else _path_file.stem)
+    if _path_file.is_file():
+      import importlib.util as ILUtil
+      _mod_name = _path_file.stem
+      _spec = ILUtil.spec_from_file_location(_mod_name, _path_file)
+      _module = ILUtil.module_from_spec(_spec)
+      self.SYS.modules[_mod_name] = _module
+      _spec.loader.exec_module(_module)
+      return getattr(_module, _classname)
+
+  def list_py_classes(self, *args, **kwargs):
+    """Lists classes as {class:filename...} pair
+    """
+    _path = kwargs.get('path', args[0] if len(args) > 0 else EntityPath())
+    _path = EntityPath(_path)
+    _flag_ref = kwargs.get('flag_ref', False)
+
+    _pattern_file = "*.py"
+    if _path.is_file():
+      _pattern_file = f"{_path.stem}*.py"
+      _path = _path.parent()
+
+    _classes = {}
+    for _file in _path.search(_pattern_file):
+      _cl = self._extract_py_classes(_file)
+      if _flag_ref is False:
+        _classes[_file.stem] = _cl
+      else:
+        _classes[_file.stem] = [self._py_class_refs(_file, _p) for _p in _cl]
+
+    return _classes
