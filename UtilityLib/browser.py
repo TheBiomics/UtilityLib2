@@ -12,19 +12,13 @@ class BrowserManager(ProjectManager):
   delay = 6
   implicit_wait = 10
   maximized = True
-  options = None
   def __init__(self, *args, **kwargs):
     self.wd_ui = ui
     self.wd_by = By
     self.wd_ec = expected_conditions
     self.wd_keys = Keys
     self.set_selectors()
-
     super().__init__(**kwargs)
-    self._set_default_options()
-
-  def _set_default_options(self):
-    ...
 
   def set_selectors(self, *args, **kwargs):
     self.by_id = By.ID
@@ -54,6 +48,16 @@ class BrowserManager(ProjectManager):
     self.wd_instance.find_element(self.wd_by.TAG_NAME, 'body').screenshot(_screenshot_path)
     self.wd_instance.set_window_size(_original_w_h['width'], _original_w_h['height'])
 
+  def fullpage_screenshot(self, *args, **kwargs):
+    _screenshot_path = args[0] if len(args) > 0 else kwargs.get("screenshot_path", 'screenshot.png')
+    try:
+      total_width = self.wd_instance.execute_script("return document.body.scrollWidth")
+      total_height = self.wd_instance.execute_script("return document.body.scrollHeight")
+      self.wd_instance.set_window_size(total_width, total_height)
+      self.wd_instance.save_screenshot(_screenshot_path)
+    except Exception as e:
+      print(f"Error capturing full-page screenshot: {e}")
+
   def wait(self, *args, **kwargs):
     _type = args[0] if len(args) > 0 else kwargs.get("type", 'implicit')
     if _type == 'implicit':
@@ -63,11 +67,14 @@ class BrowserManager(ProjectManager):
     # elem = WebDriverWait(driver, delay).until(EC.presence_of_element_located((By.NAME, 'chart')))
 
   def get_url(self, *args, **kwargs):
-    _url = args[0] if len(args) > 0 else kwargs.get("url")
-    _file_path = args[1] if len(args) > 1 else kwargs.get("file_path")
-    _screenshot_path = args[2] if len(args) > 2 else kwargs.get("screenshot_path")
+    _url = kwargs.get("url", args[0] if len(args) > 0 else None)
+    _file_path = kwargs.get("file_path", args[1] if len(args) > 1 else None)
+    _screenshot_path = kwargs.get("screenshot_path", args[2] if len(args) > 2 else None)
+    _render_js = kwargs.get("render_js", args[3] if len(args) > 3 else None)
+
     self.wd_instance.get(_url)
-    self.wait("implicit")
+    if _render_js:
+      self.wait("implicit")
 
     _html = self.wd_instance.page_source
     # _html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
@@ -81,8 +88,67 @@ class BrowserManager(ProjectManager):
     self.wait("delay")
     return _html
 
-  def init_browser(self, *args, **kwargs):
-    ...
+  def add_option(self, option):
+    """Add a browser-specific option dynamically."""
+    self.options.add_argument(option)
+
+  def set_page_load_timeout(self, timeout=30):
+    self.wd_instance.set_page_load_timeout(timeout)
+
+  def get_performance_logs(self):
+    try:
+      logs = self.wd_instance.get_log("performance")
+      return logs
+    except Exception as e:
+      print(f"Error fetching performance logs: {e}")
+      return []
+
+  def toggle_headless(self, enable=True):
+    if enable:
+      self.options.add_argument("--headless")
+    else:
+      if "--headless" in self.options.arguments:
+        self.options.arguments.remove("--headless")
+
+  def init_browser(self, browser_type='chrome', *args, **kwargs):
+    if hasattr(self, 'wd_instance') and self.wd_instance:
+      return  # Browser instance already initialized
+    try:
+      if browser_type.lower() == 'chrome':
+        from webdriver_manager.chrome import ChromeDriverManager
+        self.wd_instance = WebDriver.Chrome(
+          options=self.options,
+          service=ChromeService(executable_path=ChromeDriverManager().install())
+        )
+      elif browser_type.lower() == 'firefox':
+        from webdriver_manager.firefox import GeckoDriverManager
+        self.wd_instance = WebDriver.Firefox(
+          service=FirefoxService(executable_path=GeckoDriverManager().install())
+        )
+      else:
+        raise ValueError(f"Unsupported browser type: {browser_type}")
+      if self.maximized:
+        self.wd_instance.maximize_window()
+    except Exception as e:
+      print(f"Error initializing {browser_type} browser: {e}")
+
+  def execute_js(self, script, *args):
+    try:
+      return self.wd_instance.execute_script(script, *args)
+    except Exception as e:
+      print(f"Error executing JavaScript: {e}")
+
+  def set_proxy(self, proxy_url):
+    from selenium.webdriver.common.proxy import Proxy, ProxyType
+    proxy = Proxy()
+    proxy.proxy_type = ProxyType.MANUAL
+    proxy.http_proxy = proxy_url
+    proxy.ssl_proxy = proxy_url
+    self.options.proxy = proxy
+
+  def set_implicit_wait(self, wait_time):
+    self.implicit_wait = wait_time
+    self.wd_instance.implicitly_wait(self.implicit_wait)
 
   def close_browser(self, *args, **kwargs):
     if hasattr(self, 'wd_instance') and getattr(self, 'wd_instance'):
@@ -94,15 +160,19 @@ class BrowserManager(ProjectManager):
 
   close = close_browser
 
-  def __exit__(self):
-    # On exit close browser and db engine
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.close_browser()
+
+  def __del__(self):
     self.close_browser()
 
 class ChromeManager(BrowserManager):
   headless = True
-  options = ChromeOptions()
   def __init__(self, *args, **kwargs):
     super().__init__(**kwargs)
+    if not hasattr(self, 'options'):
+      self.options = ChromeOptions()  # Ensure options are initialized
+    self._set_default_options()
 
   def _set_default_options(self):
     self.options.add_argument("--window-size=1920,1200")
@@ -111,16 +181,17 @@ class ChromeManager(BrowserManager):
       self.options.add_argument("--headless")
 
   def init_browser(self, *args, **kwargs):
-    from webdriver_manager.chrome import ChromeDriverManager # pip install webdriver-manager
-    self.wd_instance = WebDriver.Chrome(options=self.options,
-                                        service=ChromeService(executable_path=ChromeDriverManager().install()))
-
-    if self.maximized:
-      self.wd_instance.maximize_window()
+    super().init_browser('chrome')
 
 class FireFoxManager(BrowserManager):
   def __init__(self, *args, **kwargs):
     super().__init__(**kwargs)
+    if not self.options:
+        self.options = ChromeOptions()  # Ensure options are initialized
+    self._set_default_options()
+
+  def init_browser(self, *args, **kwargs):
+    super().init_browser('firefox')
 
 class BrowserlessManager(ProjectManager):
   browser = None
