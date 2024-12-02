@@ -422,8 +422,8 @@ class FileSystemUtility(DatabaseUtility):
     _ustamp = str(self.timestamp)[:10]
 
     _path_details = kwargs.get('path_details', args[1] if len(args) > 1 else _path.with_suffix(f'.items-{_ustamp}.tsv'))
-    _level = kwargs.get('level', args[1] if len(args) > 1 else -1) # -1 for all, 0 for one recursion
-    _flag_sqlite = kwargs.get('flag_sqlite', args[2] if len(args) > 2 else False)
+    _level = kwargs.get('level', args[2] if len(args) > 2 else -1) # -1 for all, 0 for one recursion
+    _flag_sqlite = kwargs.get('flag_sqlite', args[3] if len(args) > 3 else False)
 
     if not _path or not _path.exists():
       return
